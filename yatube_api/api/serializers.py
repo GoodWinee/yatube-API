@@ -30,7 +30,7 @@ class FollowSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Follow
-        fields = '__all__'
+        exclude = ('id',)
 
         validators = [
             UniqueTogetherValidator(
@@ -67,9 +67,7 @@ class CommentSerializer(serializers.ModelSerializer):
         slug_field='username'
     )
 
-    post = serializers.PrimaryKeyRelatedField(read_only=True)
-
     class Meta:
         model = Comment
         fields = '__all__'
-        read_only_fields = ('author', 'post')
+        read_only_fields = ('post',)

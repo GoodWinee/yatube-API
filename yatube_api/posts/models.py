@@ -1,5 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+from django.utils.text import Truncator
+
+from posts.constants import MAX_LENGTH_TEXT
 
 User = get_user_model()
 
@@ -19,6 +22,9 @@ class Group(models.Model):
         'Описание'
     )
 
+    class Meta:
+        default_related_name = 'groups'
+
     def __str__(self):
         return self.title
 
@@ -27,17 +33,25 @@ class Post(models.Model):
     """Модель поста."""
 
     text = models.TextField()
-    pub_date = models.DateTimeField('Дата публикации', auto_now_add=True)
+    pub_date = models.DateTimeField(
+        'Дата публикации',
+        auto_now_add=True
+    )
     author = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='posts')
+        User,
+        on_delete=models.CASCADE,
+        related_name='posts'
+    )
     image = models.ImageField(
-        upload_to='posts/', null=True, blank=True)
+        upload_to='posts/',
+        null=True,
+        blank=True
+    )
     group = models.ForeignKey(
         Group,
         blank=True,
         null=True,
         on_delete=models.SET_NULL,
-        related_name='posts',
         verbose_name='Сообщество'
     )
 
@@ -45,9 +59,11 @@ class Post(models.Model):
         ordering = (
             'pub_date',
         )
+        default_related_name = 'posts'
 
     def __str__(self):
-        return self.text
+        truncated_text = Truncator(self.text).chars(MAX_LENGTH_TEXT)
+        return f'Пост от {self.author}: {truncated_text}'
 
 
 class Comment(models.Model):
@@ -56,12 +72,10 @@ class Comment(models.Model):
     author = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='comments'
     )
     post = models.ForeignKey(
         Post,
         on_delete=models.CASCADE,
-        related_name='comments'
     )
     text = models.TextField()
     created = models.DateTimeField(
@@ -70,8 +84,21 @@ class Comment(models.Model):
         db_index=True
     )
 
+    class Meta:
+        default_related_name = 'comments'
+
+    def __str__(self):
+        truncated_comment = Truncator(self.text).chars(MAX_LENGTH_TEXT)
+        truncated_post = Truncator(str(self.post)).chars(MAX_LENGTH_TEXT)
+        return (f'Комментарий от {self.author.username} '
+                f'к посту "{truncated_post}" '
+                f': "{truncated_comment}" '
+                )
+
 
 class Follow(models.Model):
+    """Модель подписки."""
+
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -84,3 +111,16 @@ class Follow(models.Model):
         related_name='follows',
         verbose_name='Подписаться'
     )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'following'],
+                name='unique_user_following'
+            )
+        ]
+        verbose_name = 'Подписка'
+        verbose_name_plural = 'Подписки'
+
+    def __str__(self):
+        return f'{self.user.username} подписан на {self.following.username}'
